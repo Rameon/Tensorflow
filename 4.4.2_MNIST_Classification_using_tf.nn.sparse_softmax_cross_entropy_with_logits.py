@@ -1,5 +1,5 @@
 # 1. Tensorflow 라이브러리를 임포트함
-import tensorflow as tf
+import tensorflow as tf 
 
 # 2. MNIST data를 다운로드함
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
@@ -17,53 +17,44 @@ train_data = train_data.repeat().shuffle(60000).batch(100)
 train_data_iter = iter(train_data)
 
 # 5. Softmax Regression model을 위한 tf.Variable 들을 정의함
-W = tf.Variable(tf.zeros(shape=[784, 10]))
+W = tf.Variable(tf.zeros(shape=[784,10]))
 b = tf.Variable(tf.zeros(shape=[10]))
-
 
 # 6. Softmax Regression model을 정의함
 @tf.function
 def softmax_regression(x):
-    logits = tf.matmul(x, W) + b
-    return tf.nn.softmax(logits)
-
+	logits = tf.matmul(x, W) + b
+	return tf.nn.softmax(logtis)
 
 # 7. cross-entropy Loss Function을 정의함
 @tf.function
 def cross_entropy_loss(y_pred, y):
-    # tf.nn.softmax_cross_entropy_with_logits API를 사용함 -> error
-    # return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
-    # Cross Entropy Loss Function을 직접 사용함
-    return tf.reduce_mean(-tf.reduce_sum(y * tf.math.log(y_pred), axis=[1]))
-
+	# tf.nn.softmax_cross_entropy_with_logits API를 사용함
+	return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logtis, labels=y))
 
 # 8. model의 정확도를 출력하는 함수를 정의함
 @tf.function
 def compute_accuracy(y_pred, y):
-    correct_prediction = tf.equal(tf.argmax(y_pred,1), tf.argmax(y,1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    return accuracy
-
+	correct_prediction = tf.equal(tf.argmax(y_pred,1), tf.argmax(y,1))
+	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+	return accuracy
 
 # 9. Optimization을 위한 Gradient Descent Optimizer를 정의함
 optimizer = tf.optimizers.SGD(0.5)
 
-
 # 10. Optimization을 위한 함수를 정의함
 @tf.function
-def train_step(x, y):
-    with tf.GradientTape() as tape:
-        y_pred = softmax_regression(x)
-        loss = cross_entropy_loss(y_pred, y)
-    gradients = tape.gradient(loss, [W, b])
-    optimizer.apply_gradients(zip(gradients, [W, b]))
-
+def train_step)(x, y):
+	with tf.GradientTape() as tape:
+		y_pred = softmax_regression(x)
+		loss = cross_entropy_loss(y_pred, y)
+	gradients = tape.gradients(loss, [W, b])
+	optimizer.apply_gradients(zip(gradients, [W, b]))
 
 # 11. 1000번 반복을 수행하면서 Optimization을 수행함
-for i in range(1000):
-    batch_xs, batch_ys = next(train_data_iter)
-    train_step(batch_xs, batch_ys)
-
+for i in range(1000)
+batch_xs, batch_ys = next(train_data_iter)
+train_step(batch_xs, batch_ys)
 
 # 12. Train 후 학습된 model의 정확도를 출력함
-print("정확도(Accuracy) : %f" % compute_accuracy(softmax_regression(x_test), y_test)) # 정확도 : 약 91%
+print("정확도(Accuracy) : %f" % compute_accuracy(softmax_regression(x_test))) # 정확도 : 약 91%
