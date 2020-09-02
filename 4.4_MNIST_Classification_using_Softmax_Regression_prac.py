@@ -29,6 +29,7 @@ def softmax_regression(x):
 # 7. cross-entropy Loss Function을 정의함
 @tf.function
 def cross_entropy_loss(y_pred, y):
+	# 함수를 직접 정의하여 사용함
 	return tf.reduce_mean(-tf.reduce_sum(y * tf.math.log(y_pred), axix=[1]))
 
 # 8. model의 정확도를 출력하는 함수를 정의함
