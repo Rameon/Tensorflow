@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
-# MNIST 숫자 분류를 위한 Autoencoder+Softmax 분류기 예제 - Keras API를 이용한 구현
+# MNIST 숫자 분류를 위한 Autoencoder+Softmax 분류기 예제 
 
 import tensorflow as tf
 
 # MNIST 데이터를 다운로드 합니다.
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-
 # 이미지들을 float32 데이터 타입으로 변경합니다.
 x_train, x_test = x_train.astype('float32'), x_test.astype('float32')
-
 # 28*28 형태의 이미지를 784차원으로 flattening 합니다.
 x_train, x_test = x_train.reshape([-1, 784]), x_test.reshape([-1, 784])
-
 # [0, 255] 사이의 값을 [0, 1]사이의 값으로 Normalize합니다.
 x_train, x_test = x_train / 255., x_test / 255.
 
@@ -19,62 +16,48 @@ x_train, x_test = x_train / 255., x_test / 255.
 learning_rate_RMSProp = 0.02
 learning_rate_GradientDescent = 0.5
 num_epochs = 100         # 반복횟수
-batch_size = 256
+batch_size = 256          
 display_step = 1         # 몇 Step마다 log를 출력할지 결정합니다.
 input_size = 784         # MNIST 데이터 input (이미지 크기: 28*28)
-hidden1_size = 128       # 첫번째 Hidden Layer의 노드 개수 
-hidden2_size = 64        # 두번째 Hidden Layer의 노드 개수 
+hidden1_size = 128       # 첫번째 히든레이어의 노드 개수 
+hidden2_size = 64        # 두번째 히든레이어의 노드 개수 
 
 # tf.data API를 이용해서 데이터를 섞고 batch 형태로 가져옵니다.
 train_data = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 train_data = train_data.shuffle(60000).batch(batch_size)
 
-def random_normal_intializer_with_stddev_1():
-  return tf.keras.initializers.RandomNormal(mean=0.0, stddev=1.0, seed=None)
-
-# tf.keras.Model을 이용해서 Autoencoder 모델을 정의합니다.
-class AutoEncoder(tf.keras.Model):
+# Autoencoder 모델을 정의합니다.
+class AutoEncoder(object):
+  # Autoencoder 모델을 위한 tf.Variable들을 정의합니다.
   def __init__(self):
-    super(AutoEncoder, self).__init__()
     # 인코딩(Encoding) - 784 -> 128 -> 64
-    self.hidden_layer_1 = tf.keras.layers.Dense(hidden1_size,
-                                                activation='sigmoid',
-                                                kernel_initializer=random_normal_intializer_with_stddev_1(),
-                                                bias_initializer=random_normal_intializer_with_stddev_1())
-    self.hidden_layer_2 = tf.keras.layers.Dense(hidden2_size,
-                                                activation='sigmoid',
-                                                kernel_initializer=random_normal_intializer_with_stddev_1(),
-                                                bias_initializer=random_normal_intializer_with_stddev_1())
+    self.Wh_1 = tf.Variable(tf.random.normal([input_size, hidden1_size]))
+    self.bh_1 = tf.Variable(tf.random.normal([hidden1_size]))
+    self.Wh_2 = tf.Variable(tf.random.normal([hidden1_size, hidden2_size]))
+    self.bh_2 = tf.Variable(tf.random.normal([hidden2_size]))
     # 디코딩(Decoding) 64 -> 128 -> 784
-    self.hidden_layer_3 = tf.keras.layers.Dense(hidden1_size,
-                                                activation='sigmoid',
-                                                kernel_initializer=random_normal_intializer_with_stddev_1(),
-                                                bias_initializer=random_normal_intializer_with_stddev_1())
-    self.output_layer = tf.keras.layers.Dense(input_size,
-                                                activation='sigmoid',
-                                                kernel_initializer=random_normal_intializer_with_stddev_1(),
-                                                bias_initializer=random_normal_intializer_with_stddev_1())
+    self.Wh_3 = tf.Variable(tf.random.normal([hidden2_size, hidden1_size]))
+    self.bh_3 = tf.Variable(tf.random.normal([hidden1_size]))
+    self.Wo = tf.Variable(tf.random.normal([hidden1_size, input_size]))
+    self.bo = tf.Variable(tf.random.normal([input_size]))
 
-  def call(self, x):
-    H1_output = self.hidden_layer_1(x)
-    H2_output = self.hidden_layer_2(H1_output)
-    H3_output = self.hidden_layer_3(H2_output)
-    X_reconstructed = self.output_layer(H3_output)
+  def __call__(self, x):
+    H1_output = tf.nn.sigmoid(tf.matmul(x, self.Wh_1) + self.bh_1)
+    H2_output = tf.nn.sigmoid(tf.matmul(H1_output, self.Wh_2) + self.bh_2)
+    H3_output = tf.nn.sigmoid(tf.matmul(H2_output, self.Wh_3) + self.bh_3)
+    X_reconstructed = tf.nn.sigmoid(tf.matmul(H3_output, self.Wo) + self.bo)
 
     return X_reconstructed, H2_output
 
-# tf.keras.Model을 이용해서 Softmax 분류기를 정의합니다.
-class SoftmaxClassifier(tf.keras.Model):
+# Softmax 분류기를 정의합니다.
+class SoftmaxClassifier(object):
+  # Softmax 모델을 위한 tf.Variable들을 정의합니다.
   def __init__(self):
-    super(SoftmaxClassifier, self).__init__()
-    # 원본 MNIST 이미지(784) 대신 오토인코더의 압축된 특징(64)을 입력값으로 받습니다.
-    self.softmax_layer = tf.keras.layers.Dense(10,
-                                               activation='softmax',
-                                               kernel_initializer='zeros',
-                                               bias_initializer='zeros')
+    self.W_softmax = tf.Variable(tf.zeros([hidden2_size, 10]))  # 원본 MNIST 이미지(784) 대신 오토인코더의 압축된 특징(64)을 입력값으로 받습니다.
+    self.b_softmax = tf.Variable(tf.zeros([10]))
 
-  def call(self, x):
-    y_pred = self.softmax_layer(x)
+  def __call__(self, x):
+    y_pred = tf.nn.softmax(tf.matmul(x, self.W_softmax) + self.b_softmax)
 
     return y_pred
 
@@ -95,8 +78,8 @@ def pretraining_train_step(autoencoder_model, x):
   with tf.GradientTape() as tape:
     y_pred, _ = autoencoder_model(x)
     pretraining_loss = pretraining_mse_loss(y_pred, y_true)
-  gradients = tape.gradient(pretraining_loss, autoencoder_model.trainable_variables)
-  pretraining_optimizer.apply_gradients(zip(gradients, autoencoder_model.trainable_variables))
+  gradients = tape.gradient(pretraining_loss, vars(autoencoder_model).values())
+  pretraining_optimizer.apply_gradients(zip(gradients, vars(autoencoder_model).values()))
 
 # 2. Fine-Tuning :  MNIST 데이터 분류를 목적으로하는 옵티마이저와 최적화를 위한 function 정의합니다.
 finetuning_optimizer = tf.optimizers.SGD(learning_rate_GradientDescent)
@@ -106,9 +89,9 @@ def finetuning_train_step(autoencoder_model, softmax_classifier_model, x, y):
     y_pred, extracted_features = autoencoder_model(x)
     y_pred_softmax = softmax_classifier_model(extracted_features)
     finetuning_loss = finetuning_cross_entropy_loss(y_pred_softmax, y)
-  autoencoder_encoding_variables = autoencoder_model.hidden_layer_1.trainable_variables + autoencoder_model.hidden_layer_2.trainable_variables
-  gradients = tape.gradient(finetuning_loss, autoencoder_encoding_variables + softmax_classifier_model.trainable_variables)
-  finetuning_optimizer.apply_gradients(zip(gradients, autoencoder_encoding_variables + softmax_classifier_model.trainable_variables))
+  autoencoder_encoding_variables = [autoencoder_model.Wh_1, autoencoder_model.bh_1, autoencoder_model.Wh_2, autoencoder_model.bh_2]
+  gradients = tape.gradient(finetuning_loss, autoencoder_encoding_variables + list(vars(softmax_classifier_model).values()))
+  finetuning_optimizer.apply_gradients(zip(gradients, autoencoder_encoding_variables + list(vars(softmax_classifier_model).values())))
 
 # 모델의 정확도를 출력하는 함수를 정의합니다.
 @tf.function
